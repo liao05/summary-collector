@@ -1,0 +1,12 @@
+{
+    "display_name": "摘要收集器",
+    "loading_order": 102,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "pan",
+    "version": "0.10.2",
+    "homePage": "https://github.com/liao05/summary-collector",
+    "auto_update": false
+}

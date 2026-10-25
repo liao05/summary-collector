@@ -1,0 +1,283 @@
+/* ============================================================================
+   摘要收集器 —— 面板样式(设计语言参考 神谕·大纲版:CSS 变量主题化 + 强调色 +
+   color-mix 半透明边框/填充,自动适配酒馆明暗主题)
+   ============================================================================ */
+
+#summary_collector_settings {
+    --sc-accent: #4ade80;
+    --sc-accent-blue: #3b82f6;
+    --sc-danger: #f87171;
+    --sc-body: var(--SmartThemeBodyColor, #e6e6e6);
+    --sc-border: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.16));
+    --sc-black30: var(--black30a, rgba(0, 0, 0, 0.3));
+}
+
+/* ---- 卡片 ---- */
+
+#summary_collector_settings .sc-card {
+    border: 1px solid color-mix(in srgb, var(--sc-accent) 20%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--sc-accent) 4%, transparent);
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#summary_collector_settings .sc-card-title {
+    font-size: 0.8em;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    opacity: 0.75;
+    padding-left: 8px;
+    border-left: 3px solid var(--sc-accent);
+    line-height: 1.2;
+}
+
+#summary_collector_settings .sc-card-status {
+    border-color: color-mix(in srgb, var(--sc-accent) 34%, transparent);
+    background: color-mix(in srgb, var(--sc-accent) 7%, transparent);
+}
+
+/* ---- 状态徽章 ---- */
+
+#summary_collector_settings .sc-stats {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+#summary_collector_settings .sc-stat {
+    flex: 1;
+    min-width: 72px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 7px 6px;
+    background: var(--sc-black30);
+    border: 1px solid var(--sc-border);
+    border-radius: 8px;
+}
+
+#summary_collector_settings .sc-stat-num {
+    font-size: 1.25em;
+    font-weight: 700;
+    color: var(--sc-accent);
+    line-height: 1.2;
+}
+
+#summary_collector_settings .sc-stat-label {
+    font-size: 0.72em;
+    opacity: 0.65;
+    letter-spacing: 0.06em;
+}
+
+/* ---- 字段与栅格 ---- */
+
+#summary_collector_settings .sc-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 0.85em;
+    flex: 1;
+    min-width: 0;
+}
+
+#summary_collector_settings .sc-field > label {
+    opacity: 0.72;
+}
+
+#summary_collector_settings .sc-grid {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+#summary_collector_settings .sc-field-narrow {
+    max-width: 240px;
+}
+
+#summary_collector_settings .sc-row-inline {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+#summary_collector_settings .sc-row-inline > input {
+    flex: 1;
+    min-width: 90px;
+}
+
+/* ---- 输入控件(黑色半透明底 + focus 强调色)---- */
+
+#summary_collector_settings input[type="text"],
+#summary_collector_settings input[type="number"],
+#summary_collector_settings input[type="password"],
+#summary_collector_settings select,
+#summary_collector_settings textarea {
+    width: 100%;
+    box-sizing: border-box;
+    color: var(--sc-body);
+    background-color: var(--sc-black30);
+    border: 1px solid var(--sc-border);
+    border-radius: 8px;
+    padding: 6px 9px;
+    font-family: inherit;
+    transition: border-color 0.2s;
+}
+
+#summary_collector_settings input:focus,
+#summary_collector_settings select:focus,
+#summary_collector_settings textarea:focus {
+    outline: none;
+    border-color: var(--sc-accent);
+}
+
+#summary_collector_settings textarea {
+    resize: vertical;
+    line-height: 1.45;
+    min-height: 120px;
+    font-family: "Consolas", "Monaco", monospace;
+    font-size: 0.85em;
+}
+
+#summary_collector_settings .sc-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85em;
+    cursor: pointer;
+    padding: 2px 0;
+}
+
+#summary_collector_settings .sc-check input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+    accent-color: var(--sc-accent);
+}
+
+/* ---- 模式单选(pill)---- */
+
+#summary_collector_settings .sc-pill-group {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+#summary_collector_settings .sc-pill {
+    position: relative;
+    cursor: pointer;
+}
+
+#summary_collector_settings .sc-pill input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+#summary_collector_settings .sc-pill span {
+    display: inline-block;
+    padding: 5px 14px;
+    border-radius: 8px;
+    font-size: 0.85em;
+    color: var(--sc-body);
+    background: var(--sc-black30);
+    border: 1px solid var(--sc-border);
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+#summary_collector_settings .sc-pill:hover span {
+    border-color: color-mix(in srgb, var(--sc-accent) 55%, transparent);
+}
+
+#summary_collector_settings .sc-pill:has(input:checked) span {
+    color: var(--sc-accent);
+    background: color-mix(in srgb, var(--sc-accent) 14%, transparent);
+    border-color: var(--sc-accent);
+    font-weight: 600;
+}
+
+/* ---- 按钮 ---- */
+
+#summary_collector_settings .sc-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--sc-border);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--sc-body);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.85em;
+    font-family: inherit;
+    white-space: nowrap;
+    flex: 0 0 auto;
+}
+
+#summary_collector_settings .sc-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: var(--sc-accent);
+    filter: brightness(1.1);
+}
+
+#summary_collector_settings .sc-btn-primary {
+    background: color-mix(in srgb, var(--sc-accent) 18%, transparent);
+    border-color: color-mix(in srgb, var(--sc-accent) 60%, transparent);
+    color: var(--sc-accent);
+    font-weight: 600;
+    flex: 1;
+}
+
+#summary_collector_settings .sc-btn-primary:hover {
+    background: color-mix(in srgb, var(--sc-accent) 26%, transparent);
+}
+
+#summary_collector_settings .sc-btn-danger {
+    background: color-mix(in srgb, var(--sc-danger) 12%, transparent);
+    border-color: color-mix(in srgb, var(--sc-danger) 45%, transparent);
+    color: var(--sc-danger);
+}
+
+#summary_collector_settings .sc-btn-danger:hover {
+    background: color-mix(in srgb, var(--sc-danger) 20%, transparent);
+    border-color: var(--sc-danger);
+}
+
+#summary_collector_settings .sc-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 2px;
+}
+
+#summary_collector_settings .sc-actions-main {
+    margin-bottom: 4px;
+}
+
+/* ---- 提示文字 ---- */
+
+#summary_collector_settings .sc-hint {
+    font-size: 0.78em;
+    opacity: 0.6;
+    line-height: 1.5;
+}
+
+/* ---- 版本徽章 ---- */
+
+#summary_collector_settings .sc-version {
+    font-size: 0.7em;
+    opacity: 0.55;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border: 1px solid var(--sc-border);
+    border-radius: 6px;
+    vertical-align: middle;
+}

@@ -1,6 +1,6 @@
 # 摘要收集器维护文档(instruction_book)
 
-> **版本基线**:插件 v0.7.0,基于 SillyTavern `release` 分支 1.19.0(commit `06bde939fb1e9c4c8d8641d810f0a916b5bce127`,2026-10-25 克隆到本工作区 `../SillyTavern/`)。所有接口均在该源码中核对过行号,升级酒馆后请按 §5.1 重新核对。
+> **版本基线**:插件 v1.0.0,基于 SillyTavern `release` 分支 1.19.0(commit `06bde939fb1e9c4c8d8641d810f0a916b5bce127`,2026-10-25 克隆到本工作区 `../SillyTavern/`)。所有接口均在该源码中核对过行号,升级酒馆后请按 §5.1 重新核对。
 > **实机验证**:2026-10-25 已在内置浏览器 + 模拟 LLM(OpenAI 兼容,`tests/mock-llm-server.mjs`)环境下完成 10 楼全流程实测(v0.1.0)与大总结独立 API 四模式实测(v0.2.0),全部通过;报告见 `tests/实机测试报告-2026-10-25.md`。
 
 ---

@@ -20,11 +20,20 @@ SillyTavern 扩展:逐楼识别 AI 回复中的**时间**与**摘要**,自动写
 
 ## 安装
 
-1. 把 `summary-collector` 整个文件夹复制到酒馆的扩展目录,两种位置均可:
+### 方式一:扩展面板安装(推荐)
+
+1. 酒馆顶部「扩展」面板 → **Install extension**(安装扩展);
+2. 输入仓库地址:`https://github.com/liao05/summary-collector`;
+3. 安装完成后刷新页面,在扩展面板找到「摘要收集器」。
+
+### 方式二:手动安装
+
+1. 下载本仓库(Code → Download ZIP)并解压;
+2. 把 `summary-collector` 整个文件夹复制到酒馆的扩展目录,两种位置均可:
    - 用户扩展目录:`data/<你的用户目录>/extensions/summary-collector`(推荐,多用户安装方式);
    - 全局扩展目录:`public/scripts/extensions/third-party/summary-collector`(旧版/全局安装方式;与用户目录同名时用户目录优先)。
-2. 刷新页面(或重启酒馆)。
-3. 在「扩展面板」中确认 **摘要收集器** 已启用。
+3. 刷新页面(或重启酒馆)。
+4. 在「扩展面板」中确认 **摘要收集器** 已启用。
 
 ## 快速开始
 

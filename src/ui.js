@@ -9,6 +9,7 @@ import { runSummary } from './summarizer.js';
 import { captureFloorRange, resetApiConfigWarning } from './plugin.js';
 import { ensureAll, clearCollection } from './lorebook.js';
 import { fetchCustomModels, errChainMessage } from './api-client.js';
+import { listChatPresets } from './sysprompt.js';
 import { toastInfo, toastSuccess, toastError } from './toast.js';
 
 const PANEL_HTML = `
@@ -121,7 +122,31 @@ const PANEL_HTML = `
             <div class="sc-card">
                 <div class="sc-card-title">大总结提示词模板</div>
                 <textarea id="sc_template" class="text_pole textarea_compact" rows="8"></textarea>
-                <div class="sc-actions">
+                                <div class="sc-field">
+                    <label>系统提示词来源</label>
+                    <div class="sc-inline" id="sc_sys_source_group">
+                        <label class="radio_label"><input type="radio" name="sc_sys_source" value="none"><span>不使用</span></label>
+                        <label class="radio_label"><input type="radio" name="sc_sys_source" value="custom"><span>自己写提示词</span></label>
+                        <label class="radio_label"><input type="radio" name="sc_sys_source" value="preset"><span>接酒馆预设</span></label>
+                    </div>
+                </div>
+                <div id="sc_sys_custom" hidden>
+                    <div class="sc-field">
+                        <label for="sc_sys_custom_text">自定义系统提示词(作为 system 消息置顶)</label>
+                        <textarea id="sc_sys_custom_text" class="text_pole textarea_compact" rows="4"></textarea>
+                    </div>
+                </div>
+                <div id="sc_sys_preset" hidden>
+                    <div class="sc-field">
+                        <label for="sc_sys_preset_select">酒馆 Chat Completion 预设(提示词块按 role 组装;总长超 12000 字符自动截断)</label>
+                        <div class="sc-inline">
+                            <select id="sc_sys_preset_select" class="text_pole textarea_compact"></select>
+                            <a id="sc_sys_preset_refresh" class="sc-btn">刷新</a>
+                        </div>
+                        <div class="sc-hint">随主插件模式下系统提示词只能以文本拼接(role 不保留),建议配合自定义API 使用。</div>
+                    </div>
+                </div>
+<div class="sc-actions">
                     <a id="sc_reset_template" class="sc-btn"><i class="fa-solid fa-rotate-left"></i> 恢复默认模板</a>
                 </div>
             </div>
@@ -275,6 +300,51 @@ export function initUI() {
         $template.val(settings.template);
         persist();
         toastInfo('已恢复默认大总结模板');
+    });
+
+    // —— 系统提示词来源(自己写提示词 / 接酒馆预设) ——
+    const $sysSourceRadios = $('input[name="sc_sys_source"]');
+    const $sysCustomText = $('#sc_sys_custom_text');
+    const $sysPresetSelect = $('#sc_sys_preset_select');
+
+    const applySysSourceVisibility = () => {
+        $('#sc_sys_custom').attr('hidden', settings.sysPromptSource !== 'custom');
+        $('#sc_sys_preset').attr('hidden', settings.sysPromptSource !== 'preset');
+    };
+
+    const renderSysPresetSelect = () => {
+        const names = listChatPresets();
+        $sysPresetSelect.empty();
+        for (const name of names) $sysPresetSelect.append(new Option(name, name));
+        if (settings.sysPromptPresetName && names.includes(settings.sysPromptPresetName)) {
+            $sysPresetSelect.val(settings.sysPromptPresetName);
+        }
+        if (!names.length) $sysPresetSelect.append(new Option('(未找到酒馆预设)', ''));
+    };
+
+    $sysSourceRadios.filter(`[value="${settings.sysPromptSource}"]`).prop('checked', true);
+    $sysCustomText.val(settings.sysPromptCustom);
+    renderSysPresetSelect();
+    applySysSourceVisibility();
+
+    $sysSourceRadios.on('change', function () {
+        if (!this.checked) return;
+        settings.sysPromptSource = String(this.value);
+        persist();
+        applySysSourceVisibility();
+        if (settings.sysPromptSource === 'preset') renderSysPresetSelect();
+    });
+    $sysCustomText.on('change', function () {
+        settings.sysPromptCustom = String(this.value);
+        persist();
+    });
+    $sysPresetSelect.on('change', function () {
+        settings.sysPromptPresetName = String(this.value || '');
+        persist();
+    });
+    $('#sc_sys_preset_refresh').on('click', () => {
+        renderSysPresetSelect();
+        toastInfo(`已刷新酒馆预设列表(${$sysPresetSelect.children().length} 项)`);
     });
 
     $('#sc_manual_summary').on('click', async () => {

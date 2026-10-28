@@ -14,6 +14,8 @@
 // (与 window.SillyTavern.getContext 为同一函数)。
 // ============================================================================
 
+import { buildSystemMessages } from './sysprompt.js';
+
 /** 连接模式取值 */
 export const API_MODE = {
     CURRENT: 'current',
@@ -140,7 +142,7 @@ function customAuthHeaders(apiKey) {
  * 注意 ChatCompletionService.processRequest 的 options 参数在 1.14/1.19 均无默认值,
  * 必须显式传 {};signal 用于超时中止。
  */
-async function callCustomApi(prompt, settings, signal) {
+async function callCustomApi(prompt, settings, signal, sysMsgs = []) {
     const service = getCtx().ChatCompletionService;
     if (!service) throw new Error('当前酒馆未提供 ChatCompletionService,请改用「随主插件」模式');
     const chatUrl = normalizeEndpointUrl(settings.customEndpoint, settings.customRawUrl);
@@ -153,7 +155,7 @@ async function callCustomApi(prompt, settings, signal) {
         custom_url: chatUrl.replace(/\/chat\/completions\/?$/, ''),
         custom_include_headers: JSON.stringify(customAuthHeaders(settings.customApiKey)),
         model: body.model,
-        messages: body.messages,
+        messages: [...sysMsgs, ...body.messages],
         max_tokens: body.max_tokens,
         stream: false,
     }, {}, true, signal ?? null);
@@ -189,6 +191,27 @@ export async function fetchCustomModels(endpoint, apiKey, rawUrl) {
     return ids;
 }
 
+/** 系统提示词(预设块)总长保护:预设整份可能很长,超出上限截断,防止大总结请求 token 失控 */
+const SYS_MESSAGES_MAX_CHARS = 12000;
+function limitSysMessages(messages) {
+    let total = 0;
+    const out = [];
+    for (const m of Array.isArray(messages) ? messages : []) {
+        const len = String(m.content ?? '').length;
+        if (total + len > SYS_MESSAGES_MAX_CHARS) {
+            const remain = Math.max(0, SYS_MESSAGES_MAX_CHARS - total);
+            if (remain > 0) {
+                out.push({ ...m, content: String(m.content).slice(0, remain) + '\n…(系统提示词超出长度上限,已截断)' });
+            }
+            console.warn(`[摘要收集器] 系统提示词超出长度上限(${SYS_MESSAGES_MAX_CHARS} 字符),已截断`);
+            break;
+        }
+        out.push(m);
+        total += len;
+    }
+    return out;
+}
+
 /** 给请求包一层超时:到时抛 TimeoutError 并释放调用方(race 不中止底层请求,自定义API 模式另有 AbortSignal 真中止) */
 function withTimeout(promise, seconds, label) {
     const sec = Number(seconds) || 0;
@@ -211,12 +234,13 @@ function withTimeout(promise, seconds, label) {
  */
 export async function generateSummaryText(prompt, settings) {
     const sec = Number(settings.apiTimeoutSec) || 0;
+    const sysMsgs = limitSysMessages(buildSystemMessages(settings));
     switch (settings.apiMode) {
         case API_MODE.CUSTOM: {
             // AbortSignal 让底层请求真正中止(不只释放锁)
             const signal = sec > 0 ? AbortSignal.timeout(sec * 1000) : undefined;
             try {
-                return await withTimeout(callCustomApi(prompt, settings, signal), sec, '自定义API请求');
+                return await withTimeout(callCustomApi(prompt, settings, signal, sysMsgs), sec, '自定义API请求');
             } catch (err) {
                 // AbortSignal 超时的报错是 'signal timed out',统一转成可读文案
                 if (err?.name === 'TimeoutError' || /signal timed out/i.test(err?.message ?? '')) {
@@ -227,7 +251,11 @@ export async function generateSummaryText(prompt, settings) {
         }
         default: {
             const task = (async () => {
-                const result = await getCtx().generateQuietPrompt({ quietPrompt: prompt });
+                const merged = sysMsgs.length
+                    ? sysMsgs.map(m => m.content).join('\n\n') + '\n\n' + prompt
+                    : prompt;
+                if (sysMsgs.length) console.log('[摘要收集器] 随主插件模式:系统提示词以文本形式前置(role 不保留)');
+                const result = await getCtx().generateQuietPrompt({ quietPrompt: merged });
                 return Array.isArray(result) ? result[0] : result;
             })();
             return await withTimeout(task, sec, '随主插件请求');

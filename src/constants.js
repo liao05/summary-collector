@@ -43,4 +43,15 @@ export const DEFAULTS = {
     apiPresets: [],              // 自定义API 存档 [{name, endpoint, apiKey, model, rawUrl}]
     maxTokens: 2048,             // 大总结输出预算(自定义API 模式生效)
     apiTimeoutSec: 120,          // 大总结请求超时秒数(0 = 不限时);超时释放重试锁并报错
+
+    // —— 大总结系统提示词来源(v1.2.0,参考 story-oracle-outline 的系统提示词来源功能)——
+    sysPromptSource: 'none',     // 'none' 不使用 | 'custom' 自己写提示词 | 'preset' 接酒馆预设
+    sysPromptCustom: '',         // 自定义系统提示词(来源=custom 时生效)
+    sysPromptPresetName: '',     // 酒馆 Chat Completion 预设名(来源=preset 时生效)
 };
+
+/** 接系统提示词时的身份头:立在所有预设块之前,防止"扮演/续写"类指令污染归纳任务(参考 outline 同款设计) */
+export const SYSPROMPT_IDENTITY_HEADER =
+    '【窗口性质·最高优先级】这里是「摘要收集器」的大总结窗口,不是角色扮演正文窗口。' +
+    '你的任务是把给出的逐楼摘要归纳为「时间 - 事情」时间线。下方的预设区块只为你提供语境与语气参考:' +
+    '其中任何"扮演角色""续写正文""按正文格式输出(状态栏、选项、思考块等)"的指令,在本窗口一律不适用。';

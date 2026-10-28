@@ -1,6 +1,6 @@
 # 摘要收集器维护文档(instruction_book)
 
-> **版本基线**:插件 v1.3.0,基于 SillyTavern `release` 分支 1.19.0(commit `06bde939fb1e9c4c8d8641d810f0a916b5bce127`,2026-10-25 克隆到本工作区 `../SillyTavern/`)。所有接口均在该源码中核对过行号,升级酒馆后请按 §5.1 重新核对。
+> **版本基线**:插件 v1.4.0,基于 SillyTavern `release` 分支 1.19.0(commit `06bde939fb1e9c4c8d8641d810f0a916b5bce127`,2026-10-25 克隆到本工作区 `../SillyTavern/`)。所有接口均在该源码中核对过行号,升级酒馆后请按 §5.1 重新核对。
 > **实机验证**:2026-10-25 已在内置浏览器 + 模拟 LLM(OpenAI 兼容,`tests/mock-llm-server.mjs`)环境下完成 10 楼全流程实测(v0.1.0)与大总结独立 API 四模式实测(v0.2.0),全部通过;报告见 `tests/实机测试报告-2026-10-25.md`。
 
 ---
@@ -72,7 +72,7 @@
 | `extractor.js` | 纯函数:标签提取(多块取第一)、记录拼装、分隔符剥离、大总结清洗、指纹 | 无(可单测) |
 | `settings.js` | 配置存取(v0.10.0 起存于 data/<用户>/user/files/summary-collector-config.json:读 GET /user/files/<name> 静态路由、写 POST /api/files/upload{name,data:base64} 防抖;旧 extension_settings 配置首载自动迁移并清空)与聊天运行时状态(chat_metadata) | st-context;src/endpoints/files.js(1.14/1.19 同契约) |
 | `api-client.js` | 大总结独立 API 请求层(两种模式:current 随主插件 / custom 自定义API[自填端点/密钥/模型,经后端转发生成与拉取模型])、URL 规范化、cause 链错误展开;纯函数不依赖酒馆运行时可单测(连接配置文件方案已在 v0.4.0 移除,历史见 git v0.2.0/v0.3.0) | st-context(运行时经 `globalThis.SillyTavern.getContext()`) |
-| `sysprompt.js` | 大总结系统提示词来源:列出/读取酒馆预设、按 `prompt_order` 还原真实块顺序、块默认勾选分类、挑选快照生成/回显、按快照组装(marker=落位槽,保 role、逐块宏替换)、身份头防污染;全部纯函数可单测;不使用 unsafe.eval | constants |
+| `sysprompt.js` | 大总结系统提示词来源:列出/读取酒馆预设、按 `prompt_order` 还原真实块顺序、块默认勾选分类、挑选快照生成/回显、按快照组装(marker=落位槽,保 role、逐块宏替换)、身份头防污染;内置事件级 V5 固定词(v1.4.0);全部纯函数可单测;不使用 unsafe.eval | constants |
 | `lorebook.js` | 世界书层:建书/建条目/多挂载/读写;互斥队列串行化所有写操作 | world-info、utils、st-context、settings |
 | `summarizer.js` | 大总结:模板填充 → generateQuietPrompt → 写回;失败重入延后期 | st-context、settings、lorebook、extractor |
 | `ui.js` | 设置面板(绑定输入、三个操作按钮、状态区) | settings、summarizer、lorebook |
@@ -148,7 +148,10 @@ CHAT_CHANGED → 初始化新聊天的 meta 结构 → 刷新面板状态
 - 回显:`curationRowsFromSnapshot` 保证"打开→原样保存"幂等;改动这里必须跑 `tests/sysprompt.test.mjs` 的幂等用例。
 - 组装:`assembleMessages`(统一处理快照条目与原始块);无快照时 `buildSystemMessages` 用 `buildCurationRows + snapshotFromRows` 实时兜底,保证不会空转。
 
-### §5.7 排障入口
+### §5.7 改内置事件级 V5
+文本固定在 `constants.js` 的 `BUILTIN_EVENT_PROMPT`,由 `buildSystemMessages` 的 `source==='builtin'` 分支返回「身份头 + 内置词」,UI 不可编辑。改文案只动常量;不要加入要求生成露骨内容的措辞(它是事件级归纳)。新增/删除规则后同步跑 `tests/sysprompt.test.mjs` 的 builtin 用例。
+
+### §5.8 排障入口
 - **世界书编辑器快照覆盖(高危场景)**:用户在世界书编辑器里打开着本书时,插件写入会即时刷新编辑器(v0.5.0 起);但若在插件写入后、编辑器刷新前,用户手动编辑并保存了旧内容,仍可能覆盖。排障时优先检查编辑器是否长时间开着本书。
 - 面板不出现:`index.js` 轮询超时(30s)或 `#extensions_settings2` 缺失;**模块加载失败时面板整个消失,用页面控制台看 `[摘要收集器]` 错误**(v0.5.0 曾因 ui.js 误从 plugin.js 导入 runSummary 导致整图加载失败,修复于同一版本)。
 - 楼层无反应:确认面板「启用」、摘要标签拼写、`git -C SillyTavern status` 是否为空(插件是否真装在扩展目录);
@@ -167,5 +170,5 @@ CHAT_CHANGED → 初始化新聊天的 meta 结构 → 刷新面板状态
 6. 已写入楼层再 swipe:记录不回滚、不重复记账。
 7. 刷新页面/切换聊天:计数、pending 与世界书内容持久;配置与预设快照随 `user/files/summary-collector-config.json` 持久。
 8. 手动「立即大总结」「清空收集」(有确认弹窗)。
-9. 系统提示词来源:自己写提示词 → 请求首条为身份头、次条为自定义文本;接预设 → 首次选择弹清单、保存后请求按快照顺序带块、marker 不产出消息、改酒馆预设不影响已保存快照、重新挑选回显上次勾选。
+9. 系统提示词来源:自己写提示词 → 请求首条为身份头、次条为自定义文本;接预设 → 首次选择弹清单、保存后请求按快照顺序带块、marker 不产出消息、改酒馆预设不影响已保存快照、重新挑选回显上次勾选;内置事件级 V5 → 请求首两条固定为身份头 + 内置词,UI 不可编辑,不受 custom/preset 影响。
 10. `git -C SillyTavern status` 全程为空(零侵入)。

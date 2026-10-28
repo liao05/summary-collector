@@ -134,8 +134,10 @@ const PANEL_HTML = `
                         <label class="radio_label"><input type="radio" name="sc_sys_source" value="none"><span>不使用</span></label>
                         <label class="radio_label"><input type="radio" name="sc_sys_source" value="custom"><span>自己写提示词</span></label>
                         <label class="radio_label"><input type="radio" name="sc_sys_source" value="preset"><span>接酒馆预设</span></label>
+                        <label class="radio_label"><input type="radio" name="sc_sys_source" value="builtin"><span>内置事件级 V5</span></label>
                     </div>
                 </div>
+                <div class="sc-hint" id="sc_sys_builtin_hint" hidden>内置提示词(代码内固定,界面不可编辑):逐条覆盖、混合分写、成人向只记事件级、剧情线索优先、无法归纳也不整批拒答;适配不同厂商模型的语言与格式习惯。</div>
                 <div id="sc_sys_custom" hidden>
                     <div class="sc-field">
                         <label for="sc_sys_custom_text">自定义系统提示词(作为 system 消息置顶)</label>
@@ -357,6 +359,7 @@ export function initUI() {
     const applySysSourceVisibility = () => {
         $('#sc_sys_custom').attr('hidden', settings.sysPromptSource !== 'custom');
         $('#sc_sys_preset').attr('hidden', settings.sysPromptSource !== 'preset');
+        $('#sc_sys_builtin_hint').attr('hidden', settings.sysPromptSource !== 'builtin');
     };
 
     const updateCurationCount = () => {

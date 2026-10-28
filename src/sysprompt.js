@@ -1,9 +1,9 @@
-// ============================================================================
-// 摘要收集器 —— 大总结系统提示词来源(v1.3.0:预设块策展)
+// 摘要收集器 —— 大总结系统提示词来源(v1.4.0:内置事件级 V5)
 // ----------------------------------------------------------------------------
-// 两种可选来源(参考 story-oracle 的「系统提示词来源」设计,零侵入实现):
-//   custom —— 用户自己写的系统提示词:作为 system 消息置顶;
-//   preset —— 接酒馆 Chat Completion 预设:先按预设的 prompt_order 还原真实块顺序,
+// 三种可选来源(参考 story-oracle 的「系统提示词来源」设计,零侵入实现):
+//   custom  —— 用户自己写的系统提示词:作为 system 消息置顶;
+//   builtin —— 内置「事件级 V5」:固定文本,UI 不可编辑,跨模型通用;
+//   preset  —— 接酒馆 Chat Completion 预设:先按预设的 prompt_order 还原真实块顺序,
 //             由用户勾选/排序要保留的块,冻结成快照存进本插件配置;每次大总结按快照
 //             逐块组装(保 role、marker 当落位槽、每块宏替换)。
 // 快照一旦保存即与酒馆预设解耦:之后在酒馆里改预设不会影响已冻结的块(想更新就重新挑选)。
@@ -11,7 +11,7 @@
 //            getContext().substituteParams。不使用 unsafe.eval、不依赖酒馆助手。
 // ============================================================================
 
-import { SYSPROMPT_IDENTITY_HEADER } from './constants.js';
+import { SYSPROMPT_IDENTITY_HEADER, BUILTIN_EVENT_PROMPT } from './constants.js';
 
 function getCtx() {
     return globalThis.SillyTavern?.getContext?.() ?? {};
@@ -316,6 +316,12 @@ export function buildSystemMessages(settings) {
         return [
             { role: 'system', content: SYSPROMPT_IDENTITY_HEADER },
             { role: 'system', content: text },
+        ];
+    }
+    if (source === 'builtin') {
+        return [
+            { role: 'system', content: SYSPROMPT_IDENTITY_HEADER },
+            { role: 'system', content: BUILTIN_EVENT_PROMPT },
         ];
     }
     if (source === 'preset') {

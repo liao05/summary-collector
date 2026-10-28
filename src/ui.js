@@ -15,6 +15,8 @@ import {
     buildCurationRows,
     snapshotFromRows,
     curationRowsFromSnapshot,
+    getActiveModelName,
+    resolvePromptLanguage,
 } from './sysprompt.js';
 import { toastInfo, toastSuccess, toastError } from './toast.js';
 
@@ -137,7 +139,18 @@ const PANEL_HTML = `
                         <label class="radio_label"><input type="radio" name="sc_sys_source" value="builtin"><span>内置事件级 V5</span></label>
                     </div>
                 </div>
-                <div class="sc-hint" id="sc_sys_builtin_hint" hidden>内置提示词(代码内固定,界面不可编辑):逐条覆盖、混合分写、成人向只记事件级、剧情线索优先、无法归纳也不整批拒答;适配不同厂商模型的语言与格式习惯。</div>
+                <div class="sc-hint" id="sc_sys_builtin_hint" hidden>
+                    <div>内置提示词(代码内固定,界面不可编辑):逐条覆盖、混合分写、成人向只记事件级、剧情线索优先、无法归纳也不整批拒答;自动按模型选择中文版或英文版。</div>
+                    <div class="sc-inline sc-builtin-lang-row">
+                        <label for="sc_sys_builtin_lang">内置词语言</label>
+                        <select id="sc_sys_builtin_lang" class="text_pole textarea_compact">
+                            <option value="auto">自动(按模型)</option>
+                            <option value="zh">中文</option>
+                            <option value="en">English</option>
+                        </select>
+                        <span id="sc_sys_builtin_lang_detect" class="sc-hint"></span>
+                    </div>
+                </div>
                 <div id="sc_sys_custom" hidden>
                     <div class="sc-field">
                         <label for="sc_sys_custom_text">自定义系统提示词(作为 system 消息置顶)</label>
@@ -360,6 +373,24 @@ export function initUI() {
         $('#sc_sys_custom').attr('hidden', settings.sysPromptSource !== 'custom');
         $('#sc_sys_preset').attr('hidden', settings.sysPromptSource !== 'preset');
         $('#sc_sys_builtin_hint').attr('hidden', settings.sysPromptSource !== 'builtin');
+        updateBuiltinLangHint();
+    };
+
+    /** 内置词语言行:显示当前模型与自动判定结果 */
+    const updateBuiltinLangHint = () => {
+        const $detect = $('#sc_sys_builtin_lang_detect');
+        if (!$detect.length) return;
+        const pref = String(settings.promptLanguage ?? 'auto');
+        const lang = resolvePromptLanguage(settings);
+        const label = lang === 'en' ? '英文' : '中文';
+        if (pref !== 'auto') {
+            $detect.text(`已手动指定:${label}提示词`);
+            return;
+        }
+        const model = getActiveModelName(settings);
+        $detect.text(model
+            ? `当前模型「${model}」→ ${label}提示词`
+            : `未识别到模型名,默认${label}提示词`);
     };
 
     const updateCurationCount = () => {
@@ -487,6 +518,7 @@ export function initUI() {
 
     $sysSourceRadios.filter(`[value="${settings.sysPromptSource}"]`).prop('checked', true);
     $sysCustomText.val(settings.sysPromptCustom);
+    $('#sc_sys_builtin_lang').val(settings.promptLanguage ?? 'auto');
     renderSysPresetSelect();
     applySysSourceVisibility();
 
@@ -496,6 +528,11 @@ export function initUI() {
         persist();
         applySysSourceVisibility();
         if (settings.sysPromptSource === 'preset') renderSysPresetSelect();
+    });
+    $('#sc_sys_builtin_lang').on('change', function () {
+        settings.promptLanguage = String(this.value || 'auto');
+        persist();
+        updateBuiltinLangHint();
     });
     $sysCustomText.on('change', function () {
         settings.sysPromptCustom = String(this.value);
@@ -608,6 +645,7 @@ export function initUI() {
         settings.apiMode = String(this.value);
         persist();
         applyApiModeVisibility();
+        updateBuiltinLangHint();
     });
 
     $customEndpoint.on('change', function () {
@@ -624,6 +662,7 @@ export function initUI() {
         settings.customModel = String(this.value).trim();
         persist();
         resetApiConfigWarning();
+        updateBuiltinLangHint();
     });
     $customRaw.on('change', function () {
         settings.customRawUrl = Boolean(this.checked);

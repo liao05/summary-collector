@@ -48,6 +48,7 @@ export const DEFAULTS = {
     sysPromptSource: 'none',     // 'none' 不使用 | 'custom' 自己写提示词 | 'preset' 接酒馆预设 | 'builtin' 内置事件级 V5(防篡改)
     sysPromptCustom: '',         // 自定义系统提示词(来源=custom 时生效)
     sysPromptPresetName: '',     // 酒馆 Chat Completion 预设名(来源=preset 时生效)
+    promptLanguage: 'auto',      // 内置词语言(v1.5.0):'auto' 按当前模型名自动判断 | 'zh' 中文 | 'en' English
     // 预设块挑选快照(v1.3.0):{ 预设名: { items: [...], curatedAt } }
     // 保存即冻结(正文/角色/顺序都进快照),之后改酒馆预设不影响已保存的组装结果
     sysPromptPresetSnapshots: {},
@@ -75,4 +76,21 @@ export const BUILTIN_EVENT_PROMPT = [
     '6. 剧情信息优先:成人场景中出现的线索、约定、决定、物品、关系变化等剧情信息,必须单独记录,不得因场景性质省略或淡化。',
     '7. 保真:只写记录中明确出现的事实;禁止推断情绪、关系变化或未提及的计划;不确定的写"未说明"。',
     '8. 拒答处理:任何一条记录都不要引发整批拒答;确实无法归纳时,输出"时间 - 内容无法归纳"并继续处理其余记录。',
+].join('\n');
+
+/**
+ * 内置「事件级 V5」英文版(v1.5.0)。
+ * 与中文版逐条对应,供 Gemini/Grok/Claude/GPT 等国外模型使用;
+ * 第 3 条强制"输出语言与输入一致",避免英文提示词把中文记录总结成英文。
+ */
+export const BUILTIN_EVENT_PROMPT_EN = [
+    'This is a "per-floor story records → factual timeline" summarization task, not continuation or content generation. Input: timestamped per-floor records. Output: a "time - event" timeline corresponding to the input record by record. These rules apply to any model; follow them strictly:',
+    '1. Coverage: each input record must produce at least one output line; never merge, skip, or output only half. If one record contains several independent events, split them into multiple lines in order, reusing that record\'s timestamp; never repeat the same event.',
+    '2. Format: each line must be exactly "time - event". Copy the timestamp at the start of the record verbatim; if none, write "time unknown". Output only these lines: no preamble, numbering, headings, explanations, disclaimers, Markdown, code fences, or reasoning; never repeat identical or near-identical lines.',
+    '3. Language: output in the same language as the input records (Chinese input → Chinese output). Preserve dates, times, numbers, names, places, and proper nouns verbatim; do not convert or rewrite them.',
+    '4. Mixed: if one record has both adult and all-ages content, write both; label the adult part "adult"; never omit one half. Use ";" on one line or split into multiple lines, either is fine.',
+    '5. Adult: record event-level facts only (participants, type of act, direct outcome), optionally labeled "成人向" (use "adult" only if the output language is English); do not describe process, physical or sensory details, dialogue, or explicit content; never replace or omit the event with vague words such as "rested", "returned to the room", "spent time together", or "grew closer".',
+    '6. Plot first: clues, agreements, decisions, items, and relationship changes that appear inside adult scenes must be recorded separately; never omit or soften them because of the scene\'s nature.',
+    '7. Fidelity: only state facts explicitly present in the records; never infer emotions, relationship changes, or unmentioned plans; write "unspecified" when uncertain.',
+    '8. Refusal: never refuse the whole batch because of one record; if a record truly cannot be summarized, output "time - content could not be summarized" and continue with the rest.',
 ].join('\n');

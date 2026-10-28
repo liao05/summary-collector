@@ -1,20 +1,64 @@
-// 摘要收集器 —— 大总结系统提示词来源(v1.4.0:内置事件级 V5)
+// 摘要收集器 —— 大总结系统提示词来源(v1.5.0:内置词按模型自动中/英)
 // ----------------------------------------------------------------------------
 // 三种可选来源(参考 story-oracle 的「系统提示词来源」设计,零侵入实现):
 //   custom  —— 用户自己写的系统提示词:作为 system 消息置顶;
 //   builtin —— 内置「事件级 V5」:固定文本,UI 不可编辑,跨模型通用;
+//              自动按当前模型名选择中文版或英文版(可用 promptLanguage 强制);
 //   preset  —— 接酒馆 Chat Completion 预设:先按预设的 prompt_order 还原真实块顺序,
 //             由用户勾选/排序要保留的块,冻结成快照存进本插件配置;每次大总结按快照
 //             逐块组装(保 role、marker 当落位槽、每块宏替换)。
 // 快照一旦保存即与酒馆预设解耦:之后在酒馆里改预设不会影响已冻结的块(想更新就重新挑选)。
 // 官方接口:getContext().getPresetManager('openai')(getPresetList / getCompletionPresetByName)、
-//            getContext().substituteParams。不使用 unsafe.eval、不依赖酒馆助手。
+//            getContext().substituteParams、getContext().getChatCompletionModel(当前模型名)。
+//            不使用 unsafe.eval、不依赖酒馆助手。
 // ============================================================================
 
-import { SYSPROMPT_IDENTITY_HEADER, BUILTIN_EVENT_PROMPT } from './constants.js';
+import {
+    SYSPROMPT_IDENTITY_HEADER,
+    BUILTIN_EVENT_PROMPT,
+    BUILTIN_EVENT_PROMPT_EN,
+} from './constants.js';
 
 function getCtx() {
     return globalThis.SillyTavern?.getContext?.() ?? {};
+}
+
+// 国产模型(输出中文提示词):名字命中这些片段即视为中文优先
+const CN_MODEL_RE = /(deepseek|glm|chatglm|zhipu|qwen|tongyi|kimi|moonshot|minimax|abab|hunyuan|\bhy\d|step[-:]|mimo|baichuan|ernie|wenxin|spark|doubao|skylark|internlm|sensetime|sensechat|telechat|skywork|yi-|01-ai)/i;
+// 国外模型(输出英文提示词):Gemini/GPT/Claude/Grok/Llama/Mistral 等
+const FOREIGN_MODEL_RE = /(gemini|gpt|chatgpt|claude|anthropic|grok|xai|openai|llama|mistral|mixtral|command-r|cohere|perplexity|sonar|jamba|phi-|gemma|palm|bard|\bo[1-4](?:-|$))/i;
+
+/**
+ * 按模型名判断提示词语言(纯函数,可单测)。
+ * 命中率优先国产名单,再国外名单;未知/空名默认中文(输入记录通常为中文)。
+ * @returns {'zh'|'en'}
+ */
+export function detectModelLanguage(modelName) {
+    const name = String(modelName ?? '').trim();
+    if (!name) return 'zh';
+    if (CN_MODEL_RE.test(name)) return 'zh';
+    if (FOREIGN_MODEL_RE.test(name)) return 'en';
+    return 'zh';
+}
+
+/** 当前实际使用的模型名:自定义API 用插件配置,随主插件用酒馆当前连接 */
+export function getActiveModelName(settings) {
+    if (settings?.apiMode === 'custom') return String(settings.customModel ?? '').trim();
+    try {
+        return String(getCtx().getChatCompletionModel?.() ?? '').trim();
+    } catch {
+        return '';
+    }
+}
+
+/**
+ * 决定内置词用中文还是英文(纯函数,可单测)。
+ * promptLanguage: 'auto'(默认,按模型名判断) | 'zh' | 'en'
+ */
+export function resolvePromptLanguage(settings, modelName) {
+    const pref = String(settings?.promptLanguage ?? 'auto');
+    if (pref === 'zh' || pref === 'en') return pref;
+    return detectModelLanguage(modelName ?? getActiveModelName(settings));
 }
 
 /** 酒馆运行时注入的上下文插槽(预设里 marker:true 的块) */
@@ -319,9 +363,10 @@ export function buildSystemMessages(settings) {
         ];
     }
     if (source === 'builtin') {
+        const lang = resolvePromptLanguage(settings);
         return [
             { role: 'system', content: SYSPROMPT_IDENTITY_HEADER },
-            { role: 'system', content: BUILTIN_EVENT_PROMPT },
+            { role: 'system', content: lang === 'en' ? BUILTIN_EVENT_PROMPT_EN : BUILTIN_EVENT_PROMPT },
         ];
     }
     if (source === 'preset') {

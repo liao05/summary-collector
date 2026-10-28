@@ -9,7 +9,13 @@ import { runSummary } from './summarizer.js';
 import { captureFloorRange, resetApiConfigWarning } from './plugin.js';
 import { ensureAll, clearCollection } from './lorebook.js';
 import { fetchCustomModels, errChainMessage } from './api-client.js';
-import { listChatPresets } from './sysprompt.js';
+import {
+    listChatPresets,
+    getPresetByName,
+    buildCurationRows,
+    snapshotFromRows,
+    curationRowsFromSnapshot,
+} from './sysprompt.js';
 import { toastInfo, toastSuccess, toastError } from './toast.js';
 
 const PANEL_HTML = `
@@ -138,13 +144,33 @@ const PANEL_HTML = `
                 </div>
                 <div id="sc_sys_preset" hidden>
                     <div class="sc-field">
-                        <label for="sc_sys_preset_select">酒馆 Chat Completion 预设(提示词块按 role 组装;总长超 12000 字符自动截断)</label>
+                        <label for="sc_sys_preset_select">酒馆 Chat Completion 预设(先挑选要保留的块,再按块顺序组装)</label>
                         <div class="sc-inline">
                             <select id="sc_sys_preset_select" class="text_pole textarea_compact"></select>
                             <a id="sc_sys_preset_refresh" class="sc-btn">刷新</a>
+                            <a id="sc_sys_preset_recurate" class="sc-btn" hidden><i class="fa-solid fa-list-check"></i> 重新挑选</a>
                         </div>
-                        <div class="sc-hint">随主插件模式下系统提示词只能以文本拼接(role 不保留),建议配合自定义API 使用。</div>
+                        <div class="sc-hint" id="sc_sys_preset_hint"></div>
                     </div>
+                    <div id="sc_curate" class="sc-curate" hidden>
+                        <div class="sc-curate-head">
+                            <span class="sc-curate-title"><i class="fa-solid fa-list-check"></i> 挑选要保留的块</span>
+                            <span class="sc-inline">
+                                <a id="sc_curate_all" class="sc-btn">全选</a>
+                                <a id="sc_curate_none" class="sc-btn">全不选</a>
+                            </span>
+                        </div>
+                        <div class="sc-hint">勾选要保留的块,用 ↑↓ 调整顺序;「插槽」是本次总结内容的落位处。保存后冻结为快照,之后在酒馆里改预设不影响已保存的组装结果。</div>
+                        <div id="sc_curate_list" class="sc-curate-list"></div>
+                        <div class="sc-curate-foot">
+                            <span id="sc_curate_count" class="sc-hint"></span>
+                            <span class="sc-inline">
+                                <a id="sc_curate_save" class="sc-btn sc-btn-primary">保存并使用</a>
+                                <a id="sc_curate_cancel" class="sc-btn">取消</a>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="sc-hint">随主插件模式下系统提示词只能以文本拼接(role 不保留),建议配合自定义API 使用。</div>
                 </div>
 <div class="sc-actions">
                     <a id="sc_reset_template" class="sc-btn"><i class="fa-solid fa-rotate-left"></i> 恢复默认模板</a>
@@ -306,20 +332,154 @@ export function initUI() {
     const $sysSourceRadios = $('input[name="sc_sys_source"]');
     const $sysCustomText = $('#sc_sys_custom_text');
     const $sysPresetSelect = $('#sc_sys_preset_select');
+    const $sysPresetRecurate = $('#sc_sys_preset_recurate');
+    const $sysPresetHint = $('#sc_sys_preset_hint');
+    const $curate = $('#sc_curate');
+    const $curateList = $('#sc_curate_list');
+    const $curateCount = $('#sc_curate_count');
+
+    const CURATION_CATEGORY_LABEL = {
+        marker: '插槽', story: '故事', wrapper: '包裹', machinery: '变量', prefill: '预填',
+        'user-echo': '回显', output: '输出', inert: '空块', review: '待确认',
+    };
+
+    /** 挑选清单的临时状态(未保存不上盘):{ name, rows } */
+    let curationState = null;
+
+    /** 快照容器(旧配置可能没有该键) */
+    const presetSnapshots = () => {
+        if (!settings.sysPromptPresetSnapshots || typeof settings.sysPromptPresetSnapshots !== 'object') {
+            settings.sysPromptPresetSnapshots = {};
+        }
+        return settings.sysPromptPresetSnapshots;
+    };
 
     const applySysSourceVisibility = () => {
         $('#sc_sys_custom').attr('hidden', settings.sysPromptSource !== 'custom');
         $('#sc_sys_preset').attr('hidden', settings.sysPromptSource !== 'preset');
     };
 
+    const updateCurationCount = () => {
+        if (!curationState) return;
+        const kept = curationState.rows.filter(r => r.keep);
+        const texts = kept.filter(r => r.kind === 'text');
+        const slots = kept.filter(r => r.kind === 'marker');
+        const chars = texts.reduce((n, r) => n + (r.chars || 0), 0);
+        $curateCount.text(`保留 ${texts.length} 块 + ${slots.length} 插槽 · 约 ${chars} 字`);
+    };
+
+    const renderCurationRows = () => {
+        if (!curationState) return;
+        $curateList.empty();
+        curationState.rows.forEach((r, idx) => {
+            const $row = $('<div>')
+                .addClass('sc-cur-row')
+                .toggleClass('sc-cur-off', !r.keep)
+                .toggleClass('sc-cur-marker', r.kind === 'marker');
+            const $cb = $('<input type="checkbox" class="sc-cur-cb">').prop('checked', Boolean(r.keep));
+            $cb.on('change', () => {
+                curationState.rows[idx].keep = $cb.prop('checked');
+                $row.toggleClass('sc-cur-off', !$cb.prop('checked'));
+                updateCurationCount();
+            });
+            const displayName = r.name || r.identifier || '(未命名)';
+            const $name = $('<span class="sc-cur-name">').text(displayName).attr('title', displayName);
+            $row.append($cb, $name);
+            if (r.disabled) $row.append($('<span class="sc-cur-disabled">').text('预设已停用'));
+            if (r.role && r.role !== 'system') $row.append($('<span class="sc-cur-role">').text(r.role));
+            $row.append($('<span class="sc-cur-tag">')
+                .addClass(`sc-cur-tag-${r.category}`)
+                .text(CURATION_CATEGORY_LABEL[r.category] || r.category));
+            $row.append($('<span class="sc-cur-chars">').text(r.kind === 'marker' ? '插槽' : `${r.chars} 字`));
+
+            const $moves = $('<span class="sc-cur-moves">');
+            const $up = $('<a class="sc-cur-move" title="上移">↑</a>');
+            const $down = $('<a class="sc-cur-move" title="下移">↓</a>');
+            $up.on('click', () => moveCurationRow(idx, -1));
+            $down.on('click', () => moveCurationRow(idx, 1));
+            $moves.append($up, $down);
+            $row.append($moves);
+
+            $curateList.append($row);
+        });
+        updateCurationCount();
+    };
+
+    const moveCurationRow = (idx, delta) => {
+        if (!curationState) return;
+        const to = idx + delta;
+        if (to < 0 || to >= curationState.rows.length) return;
+        const [row] = curationState.rows.splice(idx, 1);
+        curationState.rows.splice(to, 0, row);
+        renderCurationRows();
+    };
+
+    const closeCuration = () => {
+        curationState = null;
+        $curate.prop('hidden', true);
+    };
+
+    const openCuration = (name, seedRows) => {
+        let rows = seedRows;
+        if (!rows) {
+            const preset = getPresetByName(name);
+            if (!preset) {
+                toastError(`读取预设「${name}」失败,请点刷新后重试`);
+                return;
+            }
+            rows = buildCurationRows(preset);
+        }
+        if (!rows.length) {
+            toastError(`预设「${name}」没有可挑选的块,请检查酒馆里的预设配置`);
+            return;
+        }
+        curationState = { name, rows };
+        $curate.prop('hidden', false);
+        renderCurationRows();
+        if ($curate[0]?.scrollIntoView) $curate[0].scrollIntoView({ block: 'nearest' });
+    };
+
+    const updateSysPresetHint = () => {
+        $sysPresetHint.removeClass('sc-hint-error');
+        const name = settings.sysPromptPresetName;
+        if (!name) {
+            const names = listChatPresets();
+            $sysPresetHint.text(names.length
+                ? '选择一个预设后会打开块挑选清单;选回「(不使用预设)」则使用下方文本框(若填写)。'
+                : '未找到已保存的补全预设。请先在酒馆的「预设」里保存一个,再点刷新。');
+            $sysPresetRecurate.prop('hidden', true);
+            return;
+        }
+        const snap = presetSnapshots()[name];
+        if (snap && Array.isArray(snap.items) && snap.items.length) {
+            const texts = snap.items.filter(i => i.kind === 'text');
+            const slots = snap.items.filter(i => i.kind === 'marker');
+            const chars = texts.reduce((n, i) => n + String(i.content || '').length, 0);
+            const gone = !listChatPresets().includes(name);
+            $sysPresetHint.text(
+                `已按预设「${name}」的挑选结果组装:保留 ${texts.length} 个文本块 + ${slots.length} 个上下文插槽(约 ${chars} 字)。`
+                + (gone ? '该预设已不在酒馆列表中,仍使用已保存的快照。' : ''),
+            );
+            $sysPresetRecurate.prop('hidden', false);
+        } else {
+            $sysPresetHint.addClass('sc-hint-error')
+                .text(`预设「${name}」尚未挑选内容,点[重新挑选]完成挑选后才会生效。`);
+            $sysPresetRecurate.prop('hidden', false);
+        }
+    };
+
     const renderSysPresetSelect = () => {
         const names = listChatPresets();
+        const current = settings.sysPromptPresetName;
         $sysPresetSelect.empty();
+        $sysPresetSelect.append(new Option('(不使用预设)', ''));
         for (const name of names) $sysPresetSelect.append(new Option(name, name));
-        if (settings.sysPromptPresetName && names.includes(settings.sysPromptPresetName)) {
-            $sysPresetSelect.val(settings.sysPromptPresetName);
+        if (current && !names.includes(current)) {
+            // 预设被删/改名:仍列出已保存的快照名,避免用户看不见当前在用的是什么
+            $sysPresetSelect.append(new Option(`${current}(快照·不在列表)`, current));
         }
-        if (!names.length) $sysPresetSelect.append(new Option('(未找到酒馆预设)', ''));
+        $sysPresetSelect.val(names.includes(current) || current ? current : '');
+        updateSysPresetHint();
     };
 
     $sysSourceRadios.filter(`[value="${settings.sysPromptSource}"]`).prop('checked', true);
@@ -339,12 +499,75 @@ export function initUI() {
         persist();
     });
     $sysPresetSelect.on('change', function () {
-        settings.sysPromptPresetName = String(this.value || '');
-        persist();
+        const name = String(this.value || '');
+        if (!name) {
+            settings.sysPromptPresetName = '';
+            persist();
+            updateSysPresetHint();
+            return;
+        }
+        const snap = presetSnapshots()[name];
+        if (snap && Array.isArray(snap.items) && snap.items.length) {
+            settings.sysPromptPresetName = name;
+            persist();
+            updateSysPresetHint();
+            return;
+        }
+        // 未挑选过:下拉先回退到已提交值,再打开挑选清单(取消 = 等于没选)
+        $sysPresetSelect.val(settings.sysPromptPresetName || '');
+        openCuration(name);
     });
     $('#sc_sys_preset_refresh').on('click', () => {
         renderSysPresetSelect();
-        toastInfo(`已刷新酒馆预设列表(${$sysPresetSelect.children().length} 项)`);
+        toastInfo(`已刷新酒馆预设列表(${listChatPresets().length} 项)`);
+    });
+    $sysPresetRecurate.on('click', () => {
+        const name = settings.sysPromptPresetName;
+        if (!name) return;
+        const preset = getPresetByName(name);
+        const snap = presetSnapshots()[name];
+        if (!preset) {
+            if (snap && Array.isArray(snap.items) && snap.items.length) {
+                openCuration(name, curationRowsFromSnapshot([], snap));
+            } else {
+                toastError(`读取预设「${name}」失败,请点刷新后重试`);
+            }
+            return;
+        }
+        const fresh = buildCurationRows(preset);
+        openCuration(name, snap && Array.isArray(snap.items) && snap.items.length
+            ? curationRowsFromSnapshot(fresh, snap)
+            : fresh);
+    });
+    $('#sc_curate_all').on('click', () => {
+        if (!curationState) return;
+        curationState.rows.forEach(r => { r.keep = true; });
+        renderCurationRows();
+    });
+    $('#sc_curate_none').on('click', () => {
+        if (!curationState) return;
+        curationState.rows.forEach(r => { r.keep = false; });
+        renderCurationRows();
+    });
+    $('#sc_curate_save').on('click', () => {
+        if (!curationState) return;
+        const snap = snapshotFromRows(curationState.rows);
+        if (!snap.items.length) {
+            toastError('至少要保留一个块');
+            return;
+        }
+        const name = curationState.name;
+        presetSnapshots()[name] = snap;
+        settings.sysPromptPresetName = name;
+        closeCuration();
+        persist();
+        renderSysPresetSelect();
+        toastSuccess(`已保存预设「${name}」的挑选结果(${snap.items.length} 项)`);
+    });
+    $('#sc_curate_cancel').on('click', () => {
+        closeCuration();
+        $sysPresetSelect.val(settings.sysPromptPresetName || '');
+        updateSysPresetHint();
     });
 
     $('#sc_manual_summary').on('click', async () => {

@@ -111,6 +111,18 @@
     min-width: 90px;
 }
 
+#summary_collector_settings .sc-inline {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+#summary_collector_settings .sc-inline > select {
+    flex: 1 1 180px;
+    min-width: 140px;
+}
+
 /* ---- 输入控件(黑色半透明底 + focus 强调色)---- */
 
 #summary_collector_settings input[type="text"],
@@ -268,6 +280,144 @@
     font-size: 0.78em;
     opacity: 0.6;
     line-height: 1.5;
+}
+
+#summary_collector_settings .sc-hint-error {
+    color: var(--sc-danger);
+    opacity: 0.95;
+}
+
+/* ---- 预设块挑选清单(v1.3.0) ---- */
+
+#summary_collector_settings .sc-curate {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 9px;
+    border: 1px dashed color-mix(in srgb, var(--sc-accent) 40%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--sc-accent) 5%, transparent);
+}
+
+#summary_collector_settings .sc-curate[hidden] {
+    display: none;
+}
+
+#summary_collector_settings .sc-curate-head,
+#summary_collector_settings .sc-curate-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+#summary_collector_settings .sc-curate-title {
+    font-size: 0.82em;
+    font-weight: 600;
+    color: var(--sc-accent);
+}
+
+#summary_collector_settings .sc-curate-foot .sc-btn-primary {
+    flex: 0 0 auto;
+}
+
+#summary_collector_settings .sc-curate-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 2px;
+}
+
+#summary_collector_settings .sc-cur-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 8px;
+    border-radius: 7px;
+    border: 1px solid var(--sc-border);
+    background: var(--sc-black30);
+    font-size: 0.8em;
+    transition: opacity 0.15s;
+}
+
+#summary_collector_settings .sc-cur-row.sc-cur-off {
+    opacity: 0.45;
+}
+
+#summary_collector_settings .sc-cur-row.sc-cur-marker {
+    border-color: color-mix(in srgb, var(--sc-accent-blue) 45%, transparent);
+    background: color-mix(in srgb, var(--sc-accent-blue) 8%, transparent);
+}
+
+#summary_collector_settings .sc-cur-cb {
+    flex: 0 0 auto;
+    width: 15px;
+    height: 15px;
+    accent-color: var(--sc-accent);
+    cursor: pointer;
+}
+
+#summary_collector_settings .sc-cur-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#summary_collector_settings .sc-cur-disabled,
+#summary_collector_settings .sc-cur-role,
+#summary_collector_settings .sc-cur-tag {
+    flex: 0 0 auto;
+    font-size: 0.85em;
+    padding: 1px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--sc-border);
+    opacity: 0.8;
+    white-space: nowrap;
+}
+
+#summary_collector_settings .sc-cur-disabled,
+#summary_collector_settings .sc-cur-tag-prefill,
+#summary_collector_settings .sc-cur-tag-output {
+    color: var(--sc-danger);
+    border-color: color-mix(in srgb, var(--sc-danger) 40%, transparent);
+}
+
+#summary_collector_settings .sc-cur-tag {
+    color: var(--sc-accent);
+    border-color: color-mix(in srgb, var(--sc-accent) 35%, transparent);
+}
+
+#summary_collector_settings .sc-cur-chars {
+    flex: 0 0 auto;
+    font-size: 0.9em;
+    opacity: 0.5;
+    white-space: nowrap;
+}
+
+#summary_collector_settings .sc-cur-moves {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 2px;
+}
+
+#summary_collector_settings .sc-cur-move {
+    cursor: pointer;
+    padding: 0 5px;
+    border-radius: 5px;
+    border: 1px solid var(--sc-border);
+    opacity: 0.7;
+    user-select: none;
+}
+
+#summary_collector_settings .sc-cur-move:hover {
+    border-color: var(--sc-accent);
+    color: var(--sc-accent);
+    opacity: 1;
 }
 
 /* ---- 版本徽章 ---- */

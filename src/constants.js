@@ -48,6 +48,9 @@ export const DEFAULTS = {
     sysPromptSource: 'none',     // 'none' 不使用 | 'custom' 自己写提示词 | 'preset' 接酒馆预设
     sysPromptCustom: '',         // 自定义系统提示词(来源=custom 时生效)
     sysPromptPresetName: '',     // 酒馆 Chat Completion 预设名(来源=preset 时生效)
+    // 预设块挑选快照(v1.3.0):{ 预设名: { items: [...], curatedAt } }
+    // 保存即冻结(正文/角色/顺序都进快照),之后改酒馆预设不影响已保存的组装结果
+    sysPromptPresetSnapshots: {},
 };
 
 /** 接系统提示词时的身份头:立在所有预设块之前,防止"扮演/续写"类指令污染归纳任务(参考 outline 同款设计) */

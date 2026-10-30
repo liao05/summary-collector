@@ -140,7 +140,7 @@ const PANEL_HTML = `
                     </div>
                 </div>
                 <div class="sc-hint" id="sc_sys_builtin_hint" hidden>
-                    <div>内置提示词(代码内固定,界面不可编辑):逐条覆盖、混合分写、成人向只记事件级、剧情线索优先、无法归纳也不整批拒答;自动按模型选择中文版或英文版。</div>
+                    <div>内置提示词(代码内固定,界面不可编辑):把逐楼记录稳定归纳成「时间 - 事情」时间线,逐条覆盖、不合并、不跑题;自动按模型选择中文版或英文版。</div>
                     <div class="sc-inline sc-builtin-lang-row">
                         <label for="sc_sys_builtin_lang">内置词语言</label>
                         <select id="sc_sys_builtin_lang" class="text_pole textarea_compact">
